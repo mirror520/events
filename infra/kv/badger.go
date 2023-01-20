@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v3"
 )
 
 type BadgerDatabase interface {
@@ -21,12 +21,12 @@ func NewBadgerDatabase(path string) (BadgerDatabase, error) {
 		WithDir(path + "/meta").
 		WithValueDir(path + "/data")
 
-	db, err := badger.Open(opts)
+	instance, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &badgerDatabase{db}, nil
+	return &badgerDatabase{instance}, nil
 }
 
 func (db *badgerDatabase) Get(ctx context.Context, key string, value any) error {
@@ -43,10 +43,10 @@ func (db *badgerDatabase) Get(ctx context.Context, key string, value any) error 
 }
 
 func (db *badgerDatabase) Set(ctx context.Context, key string, value any) error {
-	return db.SetEX(ctx, key, value, 0)
+	return db.SetWithTTL(ctx, key, value, 0)
 }
 
-func (db *badgerDatabase) SetEX(ctx context.Context, key string, value any, expiration time.Duration) error {
+func (db *badgerDatabase) SetWithTTL(ctx context.Context, key string, value any, ttl time.Duration) error {
 	var val []byte
 	switch v := value.(type) {
 	case []byte:
@@ -62,15 +62,15 @@ func (db *badgerDatabase) SetEX(ctx context.Context, key string, value any, expi
 
 	return db.instance.Update(func(txn *badger.Txn) error {
 		e := badger.NewEntry([]byte(key), val)
-		if expiration > 0 {
-			e.WithTTL(expiration)
+		if ttl > 0 {
+			e.WithTTL(ttl)
 		}
 
 		return txn.SetEntry(e)
 	})
 }
 
-func (db *badgerDatabase) Del(ctx context.Context, keys ...string) error {
+func (db *badgerDatabase) Delete(ctx context.Context, keys ...string) error {
 	return db.instance.Update(func(txn *badger.Txn) error {
 		for _, key := range keys {
 			err := txn.Delete([]byte(key))
