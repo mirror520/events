@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mirror520/events"
-	"github.com/mirror520/events/infra/kv"
+	"github.com/mirror520/events/kv"
 )
 
 func TestGetGenesis(t *testing.T) {

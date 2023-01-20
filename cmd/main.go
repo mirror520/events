@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/mirror520/events"
-	"github.com/mirror520/events/infra/kv"
+	"github.com/mirror520/events/kv"
 )
 
 var homeDir string
