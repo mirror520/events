@@ -6,6 +6,8 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill/message"
 
+	"github.com/mirror520/events/model"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -15,20 +17,13 @@ type MqttPubSub interface {
 }
 
 type mqttPubSub struct {
+	cfg    *model.MqttConfig
 	client mqtt.Client
-	qos    byte
 }
 
-type MqttConfig struct {
-	Broker   string
-	Username string
-	Password string
-	QoS      byte
-}
-
-func NewMqttPubSub(cfg MqttConfig) (MqttPubSub, error) {
+func NewMqttPubSub(cfg *model.MqttConfig) (MqttPubSub, error) {
 	opts := mqtt.NewClientOptions().
-		SetClientID("").
+		SetClientID(cfg.ClientID).
 		AddBroker(cfg.Broker).
 		SetUsername(cfg.Username).
 		SetPassword(cfg.Password)
@@ -42,12 +37,14 @@ func NewMqttPubSub(cfg MqttConfig) (MqttPubSub, error) {
 		return nil, err
 	}
 
-	return &mqttPubSub{client, cfg.QoS}, nil
+	return &mqttPubSub{cfg, client}, nil
 }
 
 func (pubsub *mqttPubSub) Publish(topic string, messages ...*message.Message) error {
 	for _, message := range messages {
-		token := pubsub.client.Publish(topic, pubsub.qos, false, message)
+		payload := []byte(message.Payload)
+
+		token := pubsub.client.Publish(topic, pubsub.cfg.QoS, false, payload)
 		token.Wait()
 
 		if err := token.Error(); err != nil {
@@ -61,9 +58,11 @@ func (pubsub *mqttPubSub) Publish(topic string, messages ...*message.Message) er
 func (pubsub *mqttPubSub) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
 	msg := make(chan *message.Message)
 
-	token := pubsub.client.Subscribe(topic, pubsub.qos, func(c mqtt.Client, m mqtt.Message) {
+	token := pubsub.client.Subscribe(topic, pubsub.cfg.QoS, func(c mqtt.Client, m mqtt.Message) {
+		id := int(m.MessageID())
+
 		msg <- &message.Message{
-			UUID:    strconv.Itoa(int(m.MessageID())),
+			UUID:    strconv.Itoa(id),
 			Payload: m.Payload(),
 		}
 	})

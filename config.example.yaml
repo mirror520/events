@@ -1,0 +1,9 @@
+sources:
+- mqtt-test:
+    mqtt:
+      broker: mqtt:1883
+      username: username
+      password: password
+      topics: 
+      - hello/world
+
