@@ -15,6 +15,7 @@ import (
 type Service interface {
 	Up()
 	Down()
+	EventStore(e event.Event) error
 }
 
 type service struct {
@@ -69,6 +70,7 @@ func (svc *service) Down() {
 	svc.log.Info("done", zap.String("action", "down"))
 }
 
+// TODO: move to transport
 func (svc *service) process(ctx context.Context, topic string, messages <-chan *message.Message) {
 	log := svc.log.With(
 		zap.String("action", "process"),
@@ -88,7 +90,7 @@ func (svc *service) process(ctx context.Context, topic string, messages <-chan *
 			log.Debug("event recv")
 
 			e := event.NewEvent(topic, msg.Payload)
-			err := svc.events.Store(e)
+			err := svc.EventStore(e)
 			if err != nil {
 				log.Error(err.Error())
 			}
@@ -96,4 +98,13 @@ func (svc *service) process(ctx context.Context, topic string, messages <-chan *
 			msg.Ack()
 		}
 	}
+}
+
+func (svc *service) EventStore(e event.Event) error {
+	err := svc.events.Store(e)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
