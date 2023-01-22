@@ -2,14 +2,21 @@ package events
 
 import (
 	"context"
-
-	"go.uber.org/zap"
+	"sync"
 
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/tdewolff/minify/v2"
+	"github.com/tdewolff/minify/v2/json"
+	"go.uber.org/zap"
 
 	"github.com/mirror520/events/model"
 	"github.com/mirror520/events/model/event"
 	"github.com/mirror520/events/pubsub"
+)
+
+var (
+	m    *minify.M
+	once sync.Once
 )
 
 type Service interface {
@@ -27,10 +34,15 @@ type service struct {
 }
 
 func NewService(events event.Repository, sources map[string]*model.Source) Service {
-	svc := new(service)
-	svc.events = events
-	svc.sources = sources
-	return svc
+	once.Do(func() {
+		m = minify.New()
+		m.AddFunc("application/json", json.Minify)
+	})
+
+	return &service{
+		events:  events,
+		sources: sources,
+	}
 }
 
 func (svc *service) Up() {
@@ -89,10 +101,16 @@ func (svc *service) process(ctx context.Context, topic string, messages <-chan *
 			}
 			log.Debug("event recv")
 
-			e := event.NewEvent(topic, msg.Payload)
-			err := svc.EventStore(e)
+			payload, err := m.Bytes("application/json", msg.Payload)
 			if err != nil {
 				log.Error(err.Error())
+			} else {
+				e := event.NewEvent(topic, payload)
+
+				err := svc.EventStore(e)
+				if err != nil {
+					log.Error(err.Error())
+				}
 			}
 
 			msg.Ack()

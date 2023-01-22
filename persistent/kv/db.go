@@ -28,10 +28,7 @@ func loadDatabase() {
 		path = homeDir + "/.events"
 	}
 
-	opts := badger.DefaultOptions(path).
-		WithDir(path + "/meta").
-		WithValueDir(path + "/data")
-
+	opts := badger.DefaultOptions(path + "/data")
 	db, err := badger.Open(opts)
 	if err != nil {
 		panic(err.Error())

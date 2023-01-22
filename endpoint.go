@@ -22,7 +22,13 @@ func EventStoreEndpoint(svc Service) Endpoint {
 			return nil, errors.New("invalid request")
 		}
 
-		e := event.NewEvent(req.Topic, req.Payload)
+		// TODO: move to middleware
+		payload, err := m.Bytes("application/json", req.Payload)
+		if err != nil {
+			return nil, err
+		}
+
+		e := event.NewEvent(req.Topic, payload)
 		if err := svc.EventStore(e); err != nil {
 			return nil, err
 		}
