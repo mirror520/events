@@ -18,13 +18,13 @@ type mqttTestSuite struct {
 }
 
 func (suite *mqttTestSuite) SetupSuite() {
-	err := conf.LoadConfig("../")
+	cfg, err := conf.LoadConfig("../")
 	if err != nil {
 		suite.Fail(err.Error())
 		return
 	}
 
-	source, ok := conf.DataSource("mqtt-test")
+	source, ok := cfg.Sources["mqtt-test"]
 	if !ok {
 		suite.Fail("source not found")
 		return

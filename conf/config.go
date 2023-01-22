@@ -8,30 +8,20 @@ import (
 	"github.com/mirror520/events/model"
 )
 
-var cfg *model.Config
-
-func LoadConfig(path string) error {
+func LoadConfig(path string) (*model.Config, error) {
 	f, err := os.Open(path + "/config.yaml")
 	if err != nil {
 		f, err = os.Open(path + "/config.example.yaml")
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	defer f.Close()
 
+	var cfg *model.Config
 	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
-}
-
-func DataSource(name string) (*model.Source, bool) {
-	if cfg == nil {
-		return nil, false
-	}
-
-	source, ok := cfg.Sources[name]
-	return source, ok
+	return cfg, nil
 }

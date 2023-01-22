@@ -12,8 +12,7 @@ import (
 )
 
 type MqttPubSub interface {
-	message.Publisher
-	message.Subscriber
+	PubSub
 }
 
 type mqttPubSub struct {
@@ -40,11 +39,11 @@ func NewMqttPubSub(cfg *model.MqttConfig) (MqttPubSub, error) {
 	return &mqttPubSub{cfg, client}, nil
 }
 
-func (pubsub *mqttPubSub) Publish(topic string, messages ...*message.Message) error {
+func (pubSub *mqttPubSub) Publish(topic string, messages ...*message.Message) error {
 	for _, message := range messages {
 		payload := []byte(message.Payload)
 
-		token := pubsub.client.Publish(topic, pubsub.cfg.QoS, false, payload)
+		token := pubSub.client.Publish(topic, pubSub.cfg.QoS, false, payload)
 		token.Wait()
 
 		if err := token.Error(); err != nil {
@@ -55,13 +54,13 @@ func (pubsub *mqttPubSub) Publish(topic string, messages ...*message.Message) er
 	return nil
 }
 
-func (pubsub *mqttPubSub) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
-	msg := make(chan *message.Message)
+func (pubSub *mqttPubSub) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
+	messages := make(chan *message.Message)
 
-	token := pubsub.client.Subscribe(topic, pubsub.cfg.QoS, func(c mqtt.Client, m mqtt.Message) {
+	token := pubSub.client.Subscribe(topic, pubSub.cfg.QoS, func(c mqtt.Client, m mqtt.Message) {
 		id := int(m.MessageID())
 
-		msg <- &message.Message{
+		messages <- &message.Message{
 			UUID:    strconv.Itoa(id),
 			Payload: m.Payload(),
 		}
@@ -72,10 +71,10 @@ func (pubsub *mqttPubSub) Subscribe(ctx context.Context, topic string) (<-chan *
 		return nil, err
 	}
 
-	return msg, nil
+	return messages, nil
 }
 
-func (pubsub *mqttPubSub) Close() error {
-	pubsub.client.Disconnect(200)
+func (pubSub *mqttPubSub) Close() error {
+	pubSub.client.Disconnect(200)
 	return nil
 }
