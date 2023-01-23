@@ -5,30 +5,24 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/go-kit/kit/endpoint"
+
 	"github.com/mirror520/events/model/event"
 )
 
-type Endpoint func(ctx context.Context, request any) (response any, err error)
-
 type StoreRequest struct {
-	Topic   string
-	Payload json.RawMessage
+	Topic   string          `json:"topic"`
+	Payload json.RawMessage `json:"payload"`
 }
 
-func StoreEndpoint(svc Service) Endpoint {
+func StoreEndpoint(svc Service) endpoint.Endpoint {
 	return func(ctx context.Context, request any) (response any, err error) {
 		req, ok := request.(StoreRequest)
 		if !ok {
 			return nil, errors.New("invalid request")
 		}
 
-		// TODO: move to middleware
-		payload, err := m.Bytes("application/json", req.Payload)
-		if err != nil {
-			return nil, err
-		}
-
-		e := event.NewEvent(req.Topic, payload)
+		e := event.NewEvent(req.Topic, req.Payload)
 		if err := svc.Store(e); err != nil {
 			return nil, err
 		}

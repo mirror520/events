@@ -3,22 +3,12 @@ package events
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
-	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/tdewolff/minify/v2"
-	"github.com/tdewolff/minify/v2/json"
 	"go.uber.org/zap"
 
 	"github.com/mirror520/events/model"
 	"github.com/mirror520/events/model/event"
-	"github.com/mirror520/events/pubsub"
-)
-
-var (
-	m    *minify.M
-	once sync.Once
 )
 
 type Service interface {
@@ -40,11 +30,6 @@ type service struct {
 }
 
 func NewService(events event.Repository, sources map[string]*model.Source) Service {
-	once.Do(func() {
-		m = minify.New()
-		m.AddFunc("application/json", json.Minify)
-	})
-
 	return &service{
 		sources: sources,
 		events:  events,
@@ -61,72 +46,12 @@ func (svc *service) Up() {
 	svc.ctx = ctx
 	svc.cancel = cancel
 
-	for name, source := range svc.sources {
-		log := log.With(zap.String("source", name))
-
-		pubsub, err := pubsub.Factory(source)
-		if err != nil {
-			log.Error(err.Error())
-			continue
-		}
-
-		for _, topic := range source.MqttConfig.Topics {
-			messages, err := pubsub.Subscribe(ctx, topic)
-			if err != nil {
-				log.Error(err.Error(), zap.String("topic", topic))
-				continue
-			}
-
-			go svc.process(ctx, messages)
-		}
-	}
-
 	log.Info("done")
 }
 
 func (svc *service) Down() {
 	svc.cancel()
 	svc.log.Info("done", zap.String("action", "down"))
-}
-
-// TODO: move to transport
-func (svc *service) process(ctx context.Context, messages <-chan *message.Message) {
-	log := svc.log.With(
-		zap.String("action", "process"),
-	)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info("done")
-			return
-
-		case msg := <-messages:
-			if msg == nil {
-				continue
-			}
-			log.Debug("event recv")
-
-			topic := msg.Metadata.Get("topic")
-			if topic != "" {
-				log = log.With(zap.String("topic", topic))
-			}
-
-			payload, err := m.Bytes("application/json", msg.Payload)
-			if err != nil {
-				log.Error(err.Error())
-			} else {
-				e := event.NewEvent(topic, payload)
-
-				err := svc.Store(e)
-				if err != nil {
-					log.Error(err.Error())
-				}
-			}
-
-			msg.Ack()
-		}
-	}
 }
 
 func (svc *service) Store(e *event.Event) error {

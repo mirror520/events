@@ -11,4 +11,4 @@ sources:
   - hello/world
 
 destinations:
-- transport: mqtt_test
+- transport: mqtt-test

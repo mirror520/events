@@ -1,12 +1,9 @@
 package pubsub
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mirror520/events/conf"
@@ -43,33 +40,15 @@ func (suite *mqttTestSuite) SetupSuite() {
 }
 
 func (suite *mqttTestSuite) TestPubSub() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	messages, err := suite.pubSub.Subscribe(ctx, "hello/world")
-	if err != nil {
+	if err := suite.pubSub.Subscribe("hello/world", func(msg Message) {
+		payload := string(msg.Payload())
+		suite.Equal("Hello World", payload)
+	}); err != nil {
 		suite.Fail(err.Error())
 		return
 	}
 
-	go func(ctx context.Context, messages <-chan *message.Message) {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-
-			case msg := <-messages:
-				if msg == nil {
-					continue
-				}
-
-				payload := string(msg.Payload)
-				suite.Equal("Hello World", payload)
-			}
-		}
-	}(ctx, messages)
-
-	msg := message.NewMessage(watermill.NewUUID(), []byte("Hello World"))
+	msg := NewMessage("hello/world", []byte("Hello World"))
 	if err := suite.pubSub.Publish("hello/world", msg); err != nil {
 		suite.Fail(err.Error())
 		return

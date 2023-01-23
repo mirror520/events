@@ -1,11 +1,6 @@
 package pubsub
 
 import (
-	"context"
-
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
-
 	"github.com/mirror520/events/model"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -39,35 +34,33 @@ func NewMqttPubSub(cfg *model.MqttConfig) (MqttPubSub, error) {
 	return &mqttPubSub{cfg, client}, nil
 }
 
-func (pubSub *mqttPubSub) Publish(topic string, messages ...*message.Message) error {
-	for _, message := range messages {
-		payload := []byte(message.Payload)
+func (pubSub *mqttPubSub) Publish(topic string, msg Message) error {
+	token := pubSub.client.Publish(topic, pubSub.cfg.QoS, false, msg.Payload())
 
-		token := pubSub.client.Publish(topic, pubSub.cfg.QoS, false, payload)
-		token.Wait()
-
-		if err := token.Error(); err != nil {
-			return err
-		}
+	token.Wait()
+	err := token.Error()
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (pubSub *mqttPubSub) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
-	messages := make(chan *message.Message)
-
-	token := pubSub.client.Subscribe(topic, pubSub.cfg.QoS, func(c mqtt.Client, m mqtt.Message) {
-		msg := message.NewMessage(watermill.NewUUID(), m.Payload())
-		msg.Metadata.Set("topic", m.Topic())
-	})
+func (pubSub *mqttPubSub) Subscribe(topic string, callback MessageHandler) error {
+	token := pubSub.client.Subscribe(
+		topic,
+		pubSub.cfg.QoS,
+		func(client mqtt.Client, msg mqtt.Message) {
+			callback(msg)
+		},
+	)
 
 	token.Wait()
 	if err := token.Error(); err != nil {
-		return nil, err
+		return err
 	}
 
-	return messages, nil
+	return nil
 }
 
 func (pubSub *mqttPubSub) Close() error {

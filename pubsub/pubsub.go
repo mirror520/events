@@ -1,15 +1,38 @@
 package pubsub
 
-import (
-	"github.com/mirror520/events/model"
+import "github.com/mirror520/events/model"
 
-	"github.com/ThreeDotsLabs/watermill/message"
-)
+type Message interface {
+	Topic() string
+	Payload() []byte
+}
 
-// TODO: remove watermill
+type message struct {
+	topic   string
+	payload []byte
+}
+
+func NewMessage(topic string, payload []byte) Message {
+	return &message{
+		topic:   topic,
+		payload: payload,
+	}
+}
+
+func (msg *message) Topic() string {
+	return msg.topic
+}
+
+func (msg *message) Payload() []byte {
+	return msg.payload
+}
+
+type MessageHandler func(Message)
+
 type PubSub interface {
-	message.Publisher
-	message.Subscriber
+	Publish(topic string, msg Message) error
+	Subscribe(topic string, callback MessageHandler) error
+	Close() error
 }
 
 func Factory(source *model.Source) (PubSub, error) {

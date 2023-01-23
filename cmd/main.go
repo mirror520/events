@@ -50,8 +50,8 @@ func main() {
 	svc.Up()
 	{
 		endpoint := events.StoreEndpoint(svc)
-		handler := events.StoreHandler(endpoint)
-		r.PUT("/events", handler)
+		endpoint = events.MinifyMiddleware("json")(endpoint)
+		r.PUT("/events", events.HTTPStoreHandler(endpoint))
 	}
 
 	go r.Run(":8080")
