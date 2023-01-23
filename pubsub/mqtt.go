@@ -2,8 +2,8 @@ package pubsub
 
 import (
 	"context"
-	"strconv"
 
+	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 
 	"github.com/mirror520/events/model"
@@ -58,12 +58,8 @@ func (pubSub *mqttPubSub) Subscribe(ctx context.Context, topic string) (<-chan *
 	messages := make(chan *message.Message)
 
 	token := pubSub.client.Subscribe(topic, pubSub.cfg.QoS, func(c mqtt.Client, m mqtt.Message) {
-		id := int(m.MessageID())
-
-		messages <- &message.Message{
-			UUID:    strconv.Itoa(id),
-			Payload: m.Payload(),
-		}
+		msg := message.NewMessage(watermill.NewUUID(), m.Payload())
+		msg.Metadata.Set("topic", m.Topic())
 	})
 
 	token.Wait()

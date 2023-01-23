@@ -12,8 +12,8 @@ type Event struct {
 	Payload []byte
 }
 
-func NewEvent(topic string, payload []byte) Event {
-	return Event{
+func NewEvent(topic string, payload []byte) *Event {
+	return &Event{
 		ID:      ulid.Make(),
 		Topic:   topic,
 		Payload: payload,

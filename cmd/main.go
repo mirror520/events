@@ -49,8 +49,8 @@ func main() {
 	svc := events.NewService(repo, cfg.Sources)
 	svc.Up()
 	{
-		endpoint := events.EventStoreEndpoint(svc)
-		handler := events.EventStoreHandler(endpoint)
+		endpoint := events.StoreEndpoint(svc)
+		handler := events.StoreHandler(endpoint)
 		r.PUT("/events", handler)
 	}
 

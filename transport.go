@@ -8,9 +8,9 @@ import (
 	"github.com/mirror520/events/model"
 )
 
-func EventStoreHandler(endpoint Endpoint) gin.HandlerFunc {
+func StoreHandler(endpoint Endpoint) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var request EventStoreRequest
+		var request StoreRequest
 		if err := ctx.ShouldBind(&request); err != nil {
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, result)

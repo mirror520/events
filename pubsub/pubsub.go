@@ -6,6 +6,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 )
 
+// TODO: remove watermill
 type PubSub interface {
 	message.Publisher
 	message.Subscriber

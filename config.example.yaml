@@ -1,9 +1,14 @@
-sources:
+transports:
 - mqtt-test:
     mqtt:
       broker: mqtt:1883
       username: username
       password: password
-      topics: 
-      - hello/world
 
+sources:
+- transport: mqtt-test
+  topics: 
+  - hello/world
+
+destinations:
+- transport: mqtt_test
