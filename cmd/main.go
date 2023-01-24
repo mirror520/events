@@ -13,6 +13,7 @@ import (
 	"github.com/mirror520/events"
 	"github.com/mirror520/events/conf"
 	"github.com/mirror520/events/persistent/kv"
+	"github.com/mirror520/events/pubsub"
 )
 
 func main() {
@@ -42,16 +43,46 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
+	pubSubs := make(map[string]pubsub.PubSub)
+	for name, transport := range cfg.Transports {
+		pubSub, err := pubsub.Factory(transport)
+		if err != nil {
+			log.Error(err.Error(),
+				zap.String("transport", name),
+			)
+			continue
+		}
+
+		pubSubs[name] = pubSub
+	}
+
 	r := gin.Default()
 	r.Use(cors.Default())
 
 	repo := kv.NewEventRepository()
-	svc := events.NewService(repo, cfg.Sources)
+	svc := events.NewService(repo)
 	svc.Up()
 	{
 		endpoint := events.StoreEndpoint(svc)
 		endpoint = events.MinifyMiddleware("json")(endpoint)
 		r.PUT("/events", events.HTTPStoreHandler(endpoint))
+
+		for _, source := range cfg.Sources {
+			log := log.With(zap.String("transport", source.Transport))
+
+			pubSub, ok := pubSubs[source.Transport]
+			if !ok {
+				log.Error("transport not found")
+				continue
+			}
+
+			for _, topic := range source.Topics {
+				err := pubSub.Subscribe(topic, events.MQTTStoreHandler(endpoint))
+				if err != nil {
+					log.Error(err.Error(), zap.String("topic", topic))
+				}
+			}
+		}
 	}
 
 	go r.Run(":8080")

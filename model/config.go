@@ -1,47 +1,63 @@
 package model
 
-import "gopkg.in/yaml.v3"
+import (
+	"gopkg.in/yaml.v3"
+)
 
 type Config struct {
-	Sources map[string]*Source
+	Transports   map[string]*Transport
+	Sources      []*Source
+	Destinations []*Destination
 }
 
 func (cfg *Config) UnmarshalYAML(node *yaml.Node) error {
 	var raw struct {
-		Sources map[string]*Source
+		Transports   map[string]*Transport
+		Sources      []*Source
+		Destinations []*Destination
 	}
 
 	if err := node.Decode(&raw); err != nil {
 		return err
 	}
 
-	for _, source := range raw.Sources {
-		if source.MqttConfig != nil {
-			source.Type = MQTT_SOURCE
+	for _, transport := range raw.Transports {
+		if transport.MqttConfig != nil {
+			transport.Type = MQTT_SOURCE
 		}
 	}
 
+	cfg.Transports = raw.Transports
 	cfg.Sources = raw.Sources
+	cfg.Destinations = raw.Destinations
 
 	return nil
 }
 
-type SourceType int
+type TransportType int
 
 const (
-	MQTT_SOURCE SourceType = iota
+	MQTT_SOURCE TransportType = iota
 )
 
-type Source struct {
-	Type       SourceType
+type Transport struct {
+	Type       TransportType
 	MqttConfig *MqttConfig `yaml:"mqtt"`
 }
 
 type MqttConfig struct {
-	ClientID string   `yaml:"-"`
-	Broker   string   `yaml:"broker"`
-	Username string   `yaml:"username"`
-	Password string   `yaml:"password"`
-	Topics   []string `yaml:"topics"`
-	QoS      byte     `yaml:"-"`
+	ClientID string `yaml:"-"`
+	Broker   string `yaml:"broker"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	QoS      byte   `yaml:"-"`
+}
+
+type Source struct {
+	Transport string
+	Topics    []string
+}
+
+type Destination struct {
+	Transport string
 }

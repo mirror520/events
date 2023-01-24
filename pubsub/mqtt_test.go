@@ -21,16 +21,16 @@ func (suite *mqttTestSuite) SetupSuite() {
 		return
 	}
 
-	source, ok := cfg.Sources["mqtt-test"]
+	transport, ok := cfg.Transports["mqtt-test"]
 	if !ok {
-		suite.Fail("source not found")
+		suite.Fail("transport not found")
 		return
 	}
 
-	source.MqttConfig.ClientID = "test-" + time.Now().String()
-	source.MqttConfig.QoS = 1
+	transport.MqttConfig.ClientID = "test-" + time.Now().String()
+	transport.MqttConfig.QoS = 1
 
-	pubSub, err := NewMqttPubSub(source.MqttConfig)
+	pubSub, err := NewMqttPubSub(transport.MqttConfig)
 	if err != nil {
 		suite.Fail(err.Error())
 		return

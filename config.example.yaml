@@ -1,5 +1,5 @@
 transports:
-- mqtt-test:
+  mqtt-test:
     mqtt:
       broker: mqtt:1883
       username: username

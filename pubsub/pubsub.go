@@ -35,13 +35,13 @@ type PubSub interface {
 	Close() error
 }
 
-func Factory(source *model.Source) (PubSub, error) {
+func Factory(transport *model.Transport) (PubSub, error) {
 	var pubSub PubSub
 	var err error
 
-	switch source.Type {
+	switch transport.Type {
 	case model.MQTT_SOURCE:
-		pubSub, err = NewMqttPubSub(source.MqttConfig)
+		pubSub, err = NewMqttPubSub(transport.MqttConfig)
 	}
 
 	return pubSub, err

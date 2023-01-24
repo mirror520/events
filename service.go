@@ -7,7 +7,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/mirror520/events/model"
 	"github.com/mirror520/events/model/event"
 )
 
@@ -20,19 +19,17 @@ type Service interface {
 }
 
 type service struct {
-	sources map[string]*model.Source
-	events  event.Repository
-	task    *playbackTask // signle task, avoid confict
+	events event.Repository
+	task   *playbackTask // signle task, avoid confict
 
 	log    *zap.Logger
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func NewService(events event.Repository, sources map[string]*model.Source) Service {
+func NewService(events event.Repository) Service {
 	return &service{
-		sources: sources,
-		events:  events,
+		events: events,
 	}
 }
 
@@ -55,11 +52,17 @@ func (svc *service) Down() {
 }
 
 func (svc *service) Store(e *event.Event) error {
+	log := svc.log.With(
+		zap.String("action", "store"),
+	)
+
 	err := svc.events.Store(e)
 	if err != nil {
+		log.Error(err.Error())
 		return err
 	}
 
+	log.Info("event stored")
 	return nil
 }
 

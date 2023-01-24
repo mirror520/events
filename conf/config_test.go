@@ -15,6 +15,6 @@ func TestLoadConfig(t *testing.T) {
 		return
 	}
 
-	_, ok := cfg.Sources["mqtt-test"]
+	_, ok := cfg.Transports["mqtt-test"]
 	assert.True(ok)
 }
