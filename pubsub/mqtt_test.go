@@ -48,8 +48,7 @@ func (suite *mqttTestSuite) TestPubSub() {
 		return
 	}
 
-	msg := NewMessage("hello/world", []byte("Hello World"))
-	if err := suite.pubSub.Publish("hello/world", msg); err != nil {
+	if err := suite.pubSub.Publish("hello/world", []byte("Hello World")); err != nil {
 		suite.Fail(err.Error())
 		return
 	}

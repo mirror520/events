@@ -34,8 +34,8 @@ func NewMqttPubSub(cfg *model.MqttConfig) (MqttPubSub, error) {
 	return &mqttPubSub{cfg, client}, nil
 }
 
-func (pubSub *mqttPubSub) Publish(topic string, msg Message) error {
-	token := pubSub.client.Publish(topic, pubSub.cfg.QoS, false, msg.Payload())
+func (pubSub *mqttPubSub) Publish(topic string, payload []byte) error {
+	token := pubSub.client.Publish(topic, pubSub.cfg.QoS, false, payload)
 
 	token.Wait()
 	err := token.Error()

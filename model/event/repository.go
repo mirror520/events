@@ -1,8 +1,11 @@
 package event
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Repository interface {
 	Store(e *Event) error
-	Iterator(ch chan<- *Event, from time.Time) error
+	Iterator(ctx context.Context, ch chan<- *Event, from time.Time) error
 }

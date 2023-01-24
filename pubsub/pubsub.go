@@ -30,7 +30,7 @@ func (msg *message) Payload() []byte {
 type MessageHandler func(Message)
 
 type PubSub interface {
-	Publish(topic string, msg Message) error
+	Publish(topic string, payload []byte) error
 	Subscribe(topic string, callback MessageHandler) error
 	Close() error
 }

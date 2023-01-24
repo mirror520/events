@@ -2,34 +2,36 @@ package events
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/mirror520/events/model/event"
+	"github.com/mirror520/events/pubsub"
 )
 
 type Service interface {
 	Up()
 	Down()
-	Store(e *event.Event) error
-	Playback(topics []string, from time.Time) error
+	Store(topic string, payload []byte) error
+	Playback(from time.Time, topic ...string) error
 	StopPlayback() error
 }
 
 type service struct {
-	events event.Repository
-	task   *playbackTask // signle task, avoid confict
+	events       event.Repository
+	destinations []pubsub.PubSub
 
-	log    *zap.Logger
-	ctx    context.Context
-	cancel context.CancelFunc
+	log            *zap.Logger
+	ctx            context.Context
+	cancel         context.CancelFunc
+	cancelPlayback context.CancelFunc
 }
 
-func NewService(events event.Repository) Service {
+func NewService(events event.Repository, destinations []pubsub.PubSub) Service {
 	return &service{
-		events: events,
+		events:       events,
+		destinations: destinations,
 	}
 }
 
@@ -51,11 +53,12 @@ func (svc *service) Down() {
 	svc.log.Info("done", zap.String("action", "down"))
 }
 
-func (svc *service) Store(e *event.Event) error {
+func (svc *service) Store(topic string, payload []byte) error {
 	log := svc.log.With(
 		zap.String("action", "store"),
 	)
 
+	e := event.NewEvent(topic, payload)
 	err := svc.events.Store(e)
 	if err != nil {
 		log.Error(err.Error())
@@ -66,87 +69,40 @@ func (svc *service) Store(e *event.Event) error {
 	return nil
 }
 
-func (svc *service) Playback(topics []string, from time.Time) error {
-	if svc.task != nil {
-		return errors.New("busying")
+func (svc *service) Playback(from time.Time, topic ...string) error {
+	if svc.cancelPlayback != nil {
+		svc.cancelPlayback()
+		svc.cancelPlayback = nil
 	}
 
-	var topicMap map[string]struct{}
-	if len(topics) > 0 {
-		topicMap = make(map[string]struct{})
-		for _, topic := range topics {
-			topicMap[topic] = struct{}{}
-		}
-	}
-
+	ch := make(chan *event.Event)
 	ctx, cancel := context.WithCancel(svc.ctx)
-	task := &playbackTask{
-		from:   from,
-		topics: topicMap,
-		log: svc.log.With(
-			zap.String("task", "playback"),
-		),
-		ctx:    ctx,
-		cancel: cancel,
-		events: svc.events,
-	}
+	svc.cancelPlayback = cancel
 
-	go task.Start()
-
-	svc.task = task
-	return nil
-}
-
-func (svc *service) StopPlayback() error {
-	if svc.task == nil {
-		return errors.New("task not found")
-	}
-
-	svc.task.Stop()
-	svc.task = nil
-	return nil
-}
-
-type playbackTask struct {
-	from   time.Time
-	topics map[string]struct{}
-
-	log    *zap.Logger
-	ctx    context.Context
-	cancel context.CancelFunc
-	events event.Repository
-}
-
-func (task *playbackTask) Start() {
-	log := task.log.With(
-		zap.String("action", "start"),
-	)
-
-	eventCh := make(chan *event.Event)
 	go func(ctx context.Context, ch <-chan *event.Event) {
 		for {
 			select {
 			case <-ctx.Done():
 				return
 
-			case <-ch:
-				// TODO: publish to destinations
+			case e := <-ch:
+				for _, pubSub := range svc.destinations {
+					pubSub.Publish(e.Topic, e.Payload)
+				}
 			}
 		}
-	}(task.ctx, eventCh)
+	}(ctx, ch)
 
-	err := task.events.Iterator(eventCh, task.from)
-	if err != nil {
-		log.Error(err.Error())
-		return
-	}
+	go svc.events.Iterator(ctx, ch, from)
 
-	log.Info("done")
+	return nil
 }
 
-func (task *playbackTask) Stop() {
-	task.cancel()
-	task.log.Info("done",
-		zap.String("action", "stop"),
-	)
+func (svc *service) StopPlayback() error {
+	if svc.cancelPlayback != nil {
+		svc.cancelPlayback()
+	}
+
+	svc.cancelPlayback = nil
+	return nil
 }

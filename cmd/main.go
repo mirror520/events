@@ -56,11 +56,24 @@ func main() {
 		pubSubs[name] = pubSub
 	}
 
+	destinations := make([]pubsub.PubSub, 0)
+	for _, destination := range cfg.Destinations {
+		pubSub, ok := pubSubs[destination.Transport]
+		if !ok {
+			log.Error("transport not found",
+				zap.String("destination", destination.Transport),
+			)
+			continue
+		}
+
+		destinations = append(destinations, pubSub)
+	}
+
 	r := gin.Default()
 	r.Use(cors.Default())
 
 	repo := kv.NewEventRepository()
-	svc := events.NewService(repo)
+	svc := events.NewService(repo, destinations)
 	svc.Up()
 	{
 		endpoint := events.StoreEndpoint(svc)
@@ -68,7 +81,7 @@ func main() {
 		r.PUT("/events", events.HTTPStoreHandler(endpoint))
 
 		for _, source := range cfg.Sources {
-			log := log.With(zap.String("transport", source.Transport))
+			log := log.With(zap.String("source", source.Transport))
 
 			pubSub, ok := pubSubs[source.Transport]
 			if !ok {
@@ -83,6 +96,11 @@ func main() {
 				}
 			}
 		}
+	}
+
+	{
+		endpoint := events.PlaybackEndpoint(svc)
+		r.GET("/playback", events.HTTPPlaybackHandler(endpoint))
 	}
 
 	go r.Run(":8080")
