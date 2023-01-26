@@ -42,14 +42,14 @@ func HTTPStoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	}
 }
 
-func HTTPPlaybackHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+func HTTPReplayHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	log := zap.L().With(
 		zap.String("transport", "http"),
-		zap.String("handler", "playback"),
+		zap.String("handler", "replay"),
 	)
 
 	return func(ctx *gin.Context) {
-		request := PlaybackRequest{}
+		request := ReplayRequest{}
 
 		if fromStr := ctx.Query("from"); fromStr != "" {
 			from, err := time.Parse(time.RFC3339Nano, fromStr)

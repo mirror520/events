@@ -14,18 +14,18 @@ type Service interface {
 	Up()
 	Down()
 	Store(topic string, payload []byte) error
-	Playback(from time.Time, topic ...string) error
-	StopPlayback() error
+	Replay(from time.Time, topic ...string) error
+	StopReplay() error
 }
 
 type service struct {
 	events       event.Repository
 	destinations []pubsub.PubSub
 
-	log            *zap.Logger
-	ctx            context.Context
-	cancel         context.CancelFunc
-	cancelPlayback context.CancelFunc
+	log          *zap.Logger
+	ctx          context.Context
+	cancel       context.CancelFunc
+	cancelReplay context.CancelFunc
 }
 
 func NewService(events event.Repository, destinations []pubsub.PubSub) Service {
@@ -69,15 +69,15 @@ func (svc *service) Store(topic string, payload []byte) error {
 	return nil
 }
 
-func (svc *service) Playback(from time.Time, topic ...string) error {
-	if svc.cancelPlayback != nil {
-		svc.cancelPlayback()
-		svc.cancelPlayback = nil
+func (svc *service) Replay(from time.Time, topic ...string) error {
+	if svc.cancelReplay != nil {
+		svc.cancelReplay()
+		svc.cancelReplay = nil
 	}
 
 	ch := make(chan *event.Event)
 	ctx, cancel := context.WithCancel(svc.ctx)
-	svc.cancelPlayback = cancel
+	svc.cancelReplay = cancel
 
 	go func(ctx context.Context, ch <-chan *event.Event) {
 		for {
@@ -98,11 +98,11 @@ func (svc *service) Playback(from time.Time, topic ...string) error {
 	return nil
 }
 
-func (svc *service) StopPlayback() error {
-	if svc.cancelPlayback != nil {
-		svc.cancelPlayback()
+func (svc *service) StopReplay() error {
+	if svc.cancelReplay != nil {
+		svc.cancelReplay()
 	}
 
-	svc.cancelPlayback = nil
+	svc.cancelReplay = nil
 	return nil
 }

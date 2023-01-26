@@ -99,8 +99,8 @@ func main() {
 	}
 
 	{
-		endpoint := events.PlaybackEndpoint(svc)
-		r.GET("/playback", events.HTTPPlaybackHandler(endpoint))
+		endpoint := events.ReplayEndpoint(svc)
+		r.GET("/replay", events.HTTPReplayHandler(endpoint))
 	}
 
 	go r.Run(":8080")

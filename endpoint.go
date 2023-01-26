@@ -26,19 +26,19 @@ func StoreEndpoint(svc Service) endpoint.Endpoint {
 	}
 }
 
-type PlaybackRequest struct {
+type ReplayRequest struct {
 	From   time.Time `json:"from"`
 	Topics []string  `json:"topics"`
 }
 
-func PlaybackEndpoint(svc Service) endpoint.Endpoint {
+func ReplayEndpoint(svc Service) endpoint.Endpoint {
 	return func(ctx context.Context, request any) (response any, err error) {
-		req, ok := request.(PlaybackRequest)
+		req, ok := request.(ReplayRequest)
 		if !ok {
 			return nil, errors.New("invalid request")
 		}
 
-		err = svc.Playback(req.From, req.Topics...)
+		err = svc.Replay(req.From, req.Topics...)
 		return
 	}
 }
