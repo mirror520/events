@@ -33,59 +33,61 @@ func (repo *eventRepository) Store(e *event.Event) error {
 	})
 }
 
-func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Event, from time.Time) error {
-	err := repo.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
-		defer it.Close()
+func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Event, from time.Time) <-chan error {
+	errCh := make(chan error, 1)
 
-		if from.IsZero() {
-			it.Rewind()
-		} else {
-			ms := ulid.Timestamp(from)
+	go func() {
+		err := repo.db.View(func(txn *badger.Txn) error {
+			opts := badger.DefaultIteratorOptions
+			it := txn.NewIterator(opts)
+			defer it.Close()
 
-			var id ulid.ULID
-			err := id.SetTime(ms)
-			if err != nil {
-				return err
-			}
+			if from.IsZero() {
+				it.Rewind()
+			} else {
+				ms := ulid.Timestamp(from)
 
-			prefix := id[0:6]
-
-			it.Seek(prefix)
-		}
-
-		for ; it.Valid(); it.Next() {
-			select {
-			case <-ctx.Done():
-				return nil
-
-			default:
-				item := it.Item()
-
-				err := item.Value(func(val []byte) error {
-					var e *event.Event
-					if err := json.Unmarshal(val, &e); err != nil {
-						return err
-					}
-
-					ch <- e
-
-					return nil
-				})
-
+				var id ulid.ULID
+				err := id.SetTime(ms)
 				if err != nil {
 					return err
 				}
+
+				prefix := id[0:6]
+
+				it.Seek(prefix)
 			}
-		}
 
-		return nil
-	})
+			for ; it.Valid(); it.Next() {
+				select {
+				case <-ctx.Done():
+					return nil
 
-	if err != nil {
-		return err
-	}
+				default:
+					item := it.Item()
 
-	return nil
+					err := item.Value(func(val []byte) error {
+						var e *event.Event
+						if err := json.Unmarshal(val, &e); err != nil {
+							return err
+						}
+
+						ch <- e
+
+						return nil
+					})
+
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			return nil
+		})
+
+		errCh <- err
+	}()
+
+	return errCh
 }
