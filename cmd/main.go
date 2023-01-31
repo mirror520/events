@@ -74,6 +74,7 @@ func main() {
 
 	repo := kv.NewEventRepository()
 	svc := events.NewService(repo, destinations)
+	svc = events.LoggingMiddleware(zap.L())(svc)
 	svc.Up()
 	{
 		endpoint := events.StoreEndpoint(svc)

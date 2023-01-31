@@ -5,10 +5,11 @@ import (
 	"errors"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/mirror520/events/model"
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/json"
 	"github.com/tdewolff/minify/v2/xml"
+
+	"github.com/mirror520/events/model"
 )
 
 func MinifyMiddleware(format ...string) endpoint.Middleware {

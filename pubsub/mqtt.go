@@ -1,9 +1,9 @@
 package pubsub
 
 import (
-	"github.com/mirror520/events/model"
-
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+
+	"github.com/mirror520/events/model"
 )
 
 type MqttPubSub interface {

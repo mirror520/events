@@ -18,10 +18,12 @@ var (
 type Service interface {
 	Up()
 	Down()
-	Store(topic string, payload []byte) error
+	Store(topic string, payload []byte) (string, error)
 	Replay(from time.Time, topic ...string) error
 	StopReplay() error
 }
+
+type ServiceMiddleware func(Service) Service
 
 type service struct {
 	events       event.Repository
@@ -49,22 +51,22 @@ func (svc *service) Down() {
 	svc.cancel()
 }
 
-func (svc *service) Store(topic string, payload []byte) error {
+func (svc *service) Store(topic string, payload []byte) (string, error) {
 	if svc.cancelReplay != nil {
-		return ErrReplaying
+		return "", ErrReplaying
 	}
 
 	if len(payload) == 0 {
-		return ErrEmptyPayload
+		return "", ErrEmptyPayload
 	}
 
 	e := event.NewEvent(topic, payload)
 	err := svc.events.Store(e)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return e.ID.String(), nil
 }
 
 func (svc *service) Replay(from time.Time, topic ...string) error {
@@ -83,7 +85,7 @@ func (svc *service) Replay(from time.Time, topic ...string) error {
 
 	errCh := svc.events.Iterator(ctx, ch, from)
 
-	go func(ctx context.Context, ch <-chan *event.Event) {
+	go func(ctx context.Context, ch <-chan *event.Event, errCh <-chan error) {
 		for {
 			select {
 			case <-ctx.Done():
@@ -106,7 +108,7 @@ func (svc *service) Replay(from time.Time, topic ...string) error {
 				return
 			}
 		}
-	}(ctx, ch)
+	}(ctx, ch, errCh)
 
 	return nil
 }

@@ -15,14 +15,13 @@ type StoreRequest struct {
 }
 
 func StoreEndpoint(svc Service) endpoint.Endpoint {
-	return func(ctx context.Context, request any) (response any, err error) {
+	return func(ctx context.Context, request any) (any, error) {
 		req, ok := request.(StoreRequest)
 		if !ok {
 			return nil, errors.New("invalid request")
 		}
 
-		err = svc.Store(req.Topic, req.Payload)
-		return
+		return svc.Store(req.Topic, req.Payload)
 	}
 }
 
@@ -32,13 +31,17 @@ type ReplayRequest struct {
 }
 
 func ReplayEndpoint(svc Service) endpoint.Endpoint {
-	return func(ctx context.Context, request any) (response any, err error) {
+	return func(ctx context.Context, request any) (any, error) {
 		req, ok := request.(ReplayRequest)
 		if !ok {
 			return nil, errors.New("invalid request")
 		}
 
-		err = svc.Replay(req.From, req.Topics...)
-		return
+		err := svc.Replay(req.From, req.Topics...)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, nil
 	}
 }

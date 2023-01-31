@@ -7,22 +7,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/endpoint"
-	"go.uber.org/zap"
 
 	"github.com/mirror520/events/model"
 )
 
 func HTTPStoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
-	log := zap.L().With(
-		zap.String("transport", "http"),
-		zap.String("handler", "store"),
-	)
-
 	return func(ctx *gin.Context) {
 		var request StoreRequest
 		if err := ctx.ShouldBind(&request); err != nil {
-			log.Error(err.Error())
-
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, result)
 			return
@@ -30,8 +22,6 @@ func HTTPStoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 
 		_, err := endpoint(ctx, request)
 		if err != nil {
-			log.Error(err.Error())
-
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, result)
 			return
@@ -43,19 +33,12 @@ func HTTPStoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 }
 
 func HTTPReplayHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
-	log := zap.L().With(
-		zap.String("transport", "http"),
-		zap.String("handler", "replay"),
-	)
-
 	return func(ctx *gin.Context) {
 		request := ReplayRequest{}
 
 		if fromStr := ctx.Query("from"); fromStr != "" {
 			from, err := time.Parse(time.RFC3339Nano, fromStr)
 			if err != nil {
-				log.Error(err.Error())
-
 				result := model.FailureResult(err)
 				ctx.AbortWithStatusJSON(http.StatusBadRequest, result)
 				return
@@ -70,8 +53,6 @@ func HTTPReplayHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 
 		_, err := endpoint(ctx, request)
 		if err != nil {
-			log.Error(err.Error())
-
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, result)
 			return
