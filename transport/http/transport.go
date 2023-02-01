@@ -1,4 +1,4 @@
-package events
+package http
 
 import (
 	"net/http"
@@ -8,12 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/endpoint"
 
+	"github.com/mirror520/events"
 	"github.com/mirror520/events/model"
 )
 
-func HTTPStoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+func StoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var request StoreRequest
+		var request events.StoreRequest
 		if err := ctx.ShouldBind(&request); err != nil {
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, result)
@@ -32,9 +33,9 @@ func HTTPStoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	}
 }
 
-func HTTPReplayHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+func ReplayHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		request := ReplayRequest{}
+		var request events.ReplayRequest
 
 		if fromStr := ctx.Query("from"); fromStr != "" {
 			from, err := time.Parse(time.RFC3339Nano, fromStr)

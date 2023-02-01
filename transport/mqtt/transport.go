@@ -1,16 +1,17 @@
-package events
+package mqtt
 
 import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
 
+	"github.com/mirror520/events"
 	"github.com/mirror520/events/pubsub"
 )
 
-func MQTTStoreHandler(endpoint endpoint.Endpoint) pubsub.MessageHandler {
+func StoreHandler(endpoint endpoint.Endpoint) pubsub.MessageHandler {
 	return func(msg pubsub.Message) {
-		request := StoreRequest{
+		request := events.StoreRequest{
 			Topic:   msg.Topic(),
 			Payload: msg.Payload(),
 		}

@@ -8,4 +8,5 @@ import (
 type Repository interface {
 	Store(e *Event) error
 	Iterator(ctx context.Context, ch chan<- *Event, from time.Time) <-chan error
+	Close() error
 }

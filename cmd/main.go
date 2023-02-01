@@ -14,6 +14,8 @@ import (
 	"github.com/mirror520/events/conf"
 	"github.com/mirror520/events/persistent/kv"
 	"github.com/mirror520/events/pubsub"
+	"github.com/mirror520/events/transport/http"
+	"github.com/mirror520/events/transport/mqtt"
 )
 
 func main() {
@@ -79,7 +81,7 @@ func main() {
 	{
 		endpoint := events.StoreEndpoint(svc)
 		endpoint = events.MinifyMiddleware("json")(endpoint)
-		r.PUT("/events", events.HTTPStoreHandler(endpoint))
+		r.PUT("/events", http.StoreHandler(endpoint))
 
 		for _, source := range cfg.Sources {
 			log := log.With(zap.String("source", source.Transport))
@@ -91,7 +93,7 @@ func main() {
 			}
 
 			for _, topic := range source.Topics {
-				err := pubSub.Subscribe(topic, events.MQTTStoreHandler(endpoint))
+				err := pubSub.Subscribe(topic, mqtt.StoreHandler(endpoint))
 				if err != nil {
 					log.Error(err.Error(), zap.String("topic", topic))
 				}
@@ -101,7 +103,7 @@ func main() {
 
 	{
 		endpoint := events.ReplayEndpoint(svc)
-		r.GET("/replay", events.HTTPReplayHandler(endpoint))
+		r.GET("/replay", http.ReplayHandler(endpoint))
 	}
 
 	go r.Run(":8080")
@@ -113,7 +115,7 @@ func main() {
 	log.Info(sign.String())
 
 	svc.Down()
-	kv.Close()
+	repo.Close()
 
 	log.Info("done")
 }

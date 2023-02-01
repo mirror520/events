@@ -86,8 +86,12 @@ func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Even
 			return nil
 		})
 
-		errCh <- err
+		errCh <- err // done or fail
 	}()
 
 	return errCh
+}
+
+func (repo *eventRepository) Close() error {
+	return repo.db.Close()
 }
