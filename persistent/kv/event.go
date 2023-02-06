@@ -33,7 +33,7 @@ func (repo *eventRepository) Store(e *event.Event) error {
 	})
 }
 
-func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Event, from time.Time) <-chan error {
+func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Event, since time.Time) <-chan error {
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -42,10 +42,10 @@ func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Even
 			it := txn.NewIterator(opts)
 			defer it.Close()
 
-			if from.IsZero() {
+			if since.IsZero() {
 				it.Rewind()
 			} else {
-				ms := ulid.Timestamp(from)
+				ms := ulid.Timestamp(since)
 
 				var id ulid.ULID
 				err := id.SetTime(ms)

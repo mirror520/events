@@ -75,7 +75,7 @@ func main() {
 	r.Use(cors.Default())
 
 	repo := kv.NewEventRepository()
-	svc := events.NewService(repo, destinations)
+	svc := events.NewService(repo, destinations...)
 	svc = events.LoggingMiddleware(zap.L())(svc)
 	svc.Up()
 	{
@@ -116,6 +116,9 @@ func main() {
 
 	svc.Down()
 	repo.Close()
+	for _, pubSub := range pubSubs {
+		pubSub.Close()
+	}
 
 	log.Info("done")
 }

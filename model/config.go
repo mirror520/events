@@ -23,7 +23,7 @@ func (cfg *Config) UnmarshalYAML(node *yaml.Node) error {
 
 	for _, transport := range raw.Transports {
 		if transport.MqttConfig != nil {
-			transport.Type = MQTT_SOURCE
+			transport.Type = MQTT
 		}
 	}
 
@@ -37,7 +37,8 @@ func (cfg *Config) UnmarshalYAML(node *yaml.Node) error {
 type TransportType int
 
 const (
-	MQTT_SOURCE TransportType = iota
+	MQTT TransportType = iota
+	CHANNEL
 )
 
 type Transport struct {

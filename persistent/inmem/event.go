@@ -42,20 +42,20 @@ func (repo *eventRepository) Store(e *event.Event) error {
 	return nil
 }
 
-func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Event, from time.Time) <-chan error {
-	repo.RLock()
-	defer repo.RUnlock()
-
+func (repo *eventRepository) Iterator(ctx context.Context, ch chan<- *event.Event, since time.Time) <-chan error {
 	errCh := make(chan error, 1)
 
 	go func() {
+		repo.RLock()
+		defer repo.RUnlock()
+
 		for _, e := range repo.events {
 			select {
 			case <-ctx.Done():
 				return
 
 			default:
-				if !from.IsZero() && e.Time().Before(from) {
+				if !since.IsZero() && e.Time().Before(since) {
 					continue
 				}
 

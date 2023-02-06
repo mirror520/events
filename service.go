@@ -34,7 +34,7 @@ type service struct {
 	cancelReplay context.CancelFunc
 }
 
-func NewService(events event.Repository, destinations []pubsub.PubSub) Service {
+func NewService(events event.Repository, destinations ...pubsub.PubSub) Service {
 	return &service{
 		events:       events,
 		destinations: destinations,
@@ -69,7 +69,7 @@ func (svc *service) Store(topic string, payload []byte) (string, error) {
 	return e.ID.String(), nil
 }
 
-func (svc *service) Replay(from time.Time, topic ...string) error {
+func (svc *service) Replay(since time.Time, topic ...string) error {
 	if svc.cancelReplay != nil {
 		return ErrBusying
 	}
@@ -83,7 +83,7 @@ func (svc *service) Replay(from time.Time, topic ...string) error {
 	ctx, cancel := context.WithCancel(svc.ctx)
 	svc.cancelReplay = cancel
 
-	errCh := svc.events.Iterator(ctx, ch, from)
+	errCh := svc.events.Iterator(ctx, ch, since)
 
 	go func(ctx context.Context, ch <-chan *event.Event, errCh <-chan error) {
 		for {

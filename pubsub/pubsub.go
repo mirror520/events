@@ -40,8 +40,11 @@ func Factory(transport *model.Transport) (PubSub, error) {
 	var err error
 
 	switch transport.Type {
-	case model.MQTT_SOURCE:
+	case model.MQTT:
 		pubSub, err = NewMqttPubSub(transport.MqttConfig)
+
+	case model.CHANNEL:
+		pubSub, err = NewChannelPubSub()
 	}
 
 	return pubSub, err
