@@ -1,4 +1,4 @@
-package events
+package main
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/mirror520/events"
 	"github.com/mirror520/events/model/event"
 	"github.com/mirror520/events/persistent/inmem"
 	"github.com/mirror520/events/pubsub"
@@ -21,7 +22,7 @@ type eventsTestSuite struct {
 
 	pubSub pubsub.PubSub
 	repo   event.Repository
-	svc    Service
+	svc    events.Service
 	sync.Mutex
 }
 
@@ -54,7 +55,7 @@ func (suite *eventsTestSuite) SetupSuite() {
 		})
 	}
 
-	svc := NewService(repo, pubSub)
+	svc := events.NewService(repo, pubSub)
 	svc.Up()
 
 	suite.now = now
