@@ -1,14 +1,3 @@
-transports:
-  mqtt-test:
-    mqtt:
-      broker: mqtt:1883
-      username: username
-      password: password
-
-sources:
-- transport: mqtt-test
-  topics: 
-  - hello/world
-
-destinations:
-- transport: mqtt-test
+persistence:
+  driver: badger
+  # dsn: 

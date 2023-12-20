@@ -24,12 +24,10 @@ func TestMinifyMiddleware(t *testing.T) {
 	ack := make(chan any)
 
 	endpoint := debugMiddleware(ack)
-	endpoint = MinifyMiddleware("json")(endpoint)
+	endpoint = MinifyMiddleware(JSON)(endpoint)
 
 	input := []byte(`{
-		"from": "14c5f88a",
-		"to": "bb75a980",
-		"value": 10,
+		"message": "Hello World",
 		"timestamp": "2023-01-22T23:35:00.000+08:00"
 	}`)
 
@@ -47,7 +45,7 @@ func TestMinifyMiddleware(t *testing.T) {
 		return
 	}
 
-	output := `{"from":"14c5f88a","to":"bb75a980","value":10,"timestamp":"2023-01-22T23:35:00.000+08:00"}`
+	output := `{"message":"Hello World","timestamp":"2023-01-22T23:35:00.000+08:00"}`
 	assert.Equal(output, string(req.Payload))
 	assert.True(len(req.Payload) <= len(input))
 }

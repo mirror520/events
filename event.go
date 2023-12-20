@@ -1,15 +1,16 @@
-package event
+package events
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/oklog/ulid/v2"
 )
 
 type Event struct {
-	ID      ulid.ULID
-	Topic   string
-	Payload []byte
+	ID      ulid.ULID       `json:"id"`
+	Topic   string          `json:"topic"`
+	Payload json.RawMessage `json:"payload"`
 }
 
 func NewEvent(topic string, payload []byte) *Event {

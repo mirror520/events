@@ -2,8 +2,7 @@ package http
 
 import (
 	"net/http"
-	"strings"
-	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/endpoint"
@@ -33,33 +32,71 @@ func StoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	}
 }
 
-func ReplayHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+func IteratorHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var request events.ReplayRequest
-
-		if fromStr := ctx.Query("from"); fromStr != "" {
-			from, err := time.Parse(time.RFC3339Nano, fromStr)
-			if err != nil {
-				result := model.FailureResult(err)
-				ctx.AbortWithStatusJSON(http.StatusBadRequest, result)
-				return
-			}
-
-			request.From = from
+		var request events.IteratorRequest
+		if err := ctx.ShouldBind(&request); err != nil {
+			result := model.FailureResult(err)
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, result)
+			return
 		}
 
-		if topicStr := ctx.Query("topic"); topicStr != "" {
-			request.Topics = strings.Split(topicStr, ",")
-		}
-
-		_, err := endpoint(ctx, request)
+		id, err := endpoint(ctx, request)
 		if err != nil {
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, result)
 			return
 		}
 
-		result := model.SuccessResult("ok")
+		result := model.SuccessResult("iterator created")
+		result.Data = id
+		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func FetchFromIteratorHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		request := events.FetchFromIteratorRequest{
+			ID:    ctx.Param("id"),
+			Batch: 100,
+		}
+
+		if batchStr := ctx.Query("batch"); batchStr != "" {
+			batch, err := strconv.Atoi(batchStr)
+			if err != nil {
+				result := model.FailureResult(err)
+				ctx.AbortWithStatusJSON(http.StatusBadRequest, result)
+				return
+			}
+
+			request.Batch = batch
+		}
+
+		response, err := endpoint(ctx, request)
+		if err != nil {
+			result := model.FailureResult(err)
+			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, result)
+			return
+		}
+
+		result := model.SuccessResult("event fetched")
+		result.Data = response
+		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func CloseIteratorHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id := ctx.Param("id")
+
+		_, err := endpoint(ctx, id)
+		if err != nil {
+			result := model.FailureResult(err)
+			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, result)
+			return
+		}
+
+		result := model.SuccessResult("iterator closed")
 		ctx.JSON(http.StatusOK, result)
 	}
 }

@@ -1,7 +1,6 @@
 package events
 
 import (
-	"errors"
 	"time"
 
 	"go.uber.org/zap"
@@ -29,40 +28,68 @@ func (mw *loggingMiddleware) Down() {
 	mw.next.Down()
 }
 
-func (mw *loggingMiddleware) Store(topic string, payload []byte) (string, error) {
+func (mw *loggingMiddleware) Store(topic string, payload []byte) error {
 	log := mw.log.With(
 		zap.String("action", "store"),
 		zap.String("topic", topic),
 	)
 
-	id, err := mw.next.Store(topic, payload)
-	if err != nil {
-		if !errors.Is(err, ErrReplaying) {
-			log.Error(err.Error())
-		}
-
-		return "", err
-	}
-
-	log.Info("event stored", zap.String("id", id))
-	return id, nil
-}
-
-func (mw *loggingMiddleware) Replay(from time.Time, topic ...string) error {
-	log := mw.log.With(
-		zap.String("action", "replay"),
-		zap.Time("from", from),
-	)
-
-	err := mw.next.Replay(from, topic...)
+	err := mw.next.Store(topic, payload)
 	if err != nil {
 		log.Error(err.Error())
+		return err
 	}
 
-	log.Info("replaying")
+	log.Info("event stored")
 	return nil
 }
 
-func (mw *loggingMiddleware) StopReplay() error {
-	return mw.next.StopReplay()
+func (mw *loggingMiddleware) Iterator(topic string, since time.Time) (Iterator, error) {
+	log := mw.log.With(
+		zap.String("action", "iterator"),
+		zap.String("topic", topic),
+		zap.Time("since", since),
+	)
+
+	it, err := mw.next.Iterator(topic, since)
+	if err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	log.Info("iterator created")
+	return it, nil
+}
+
+func (mw *loggingMiddleware) FetchFromIterator(batch int, id string) ([]*Event, error) {
+	log := mw.log.With(
+		zap.String("action", "fetch"),
+		zap.String("iterator", id),
+		zap.Int("batch", batch),
+	)
+
+	events, err := mw.next.FetchFromIterator(batch, id)
+	if err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	log.Info("event fetched", zap.Int("size", len(events)))
+	return events, nil
+}
+
+func (mw *loggingMiddleware) CloseIterator(id string) error {
+	log := mw.log.With(
+		zap.String("action", "close_iterator"),
+		zap.String("iterator", id),
+	)
+
+	err := mw.next.CloseIterator(id)
+	if err != nil {
+		log.Error(err.Error())
+		return err
+	}
+
+	log.Info("iterator closed")
+	return nil
 }

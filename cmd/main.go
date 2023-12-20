@@ -6,31 +6,55 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	"github.com/mirror520/events"
-	"github.com/mirror520/events/conf"
-	"github.com/mirror520/events/persistent/kv"
-	"github.com/mirror520/events/pubsub"
+	"github.com/mirror520/events/persistence"
 	"github.com/mirror520/events/transport/http"
-	"github.com/mirror520/events/transport/mqtt"
 )
 
 func main() {
-	path, ok := os.LookupEnv("EVENTS_WORK_DIR")
-	if !ok {
+	app := &cli.App{
+		Name:  "events",
+		Usage: "The events is a versatile solution for storing, managing, and iterating through events.",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "path",
+				Usage:   "Specifies the working directory",
+				EnvVars: []string{"EVENTS_PATH"},
+			},
+			&cli.IntFlag{
+				Name:    "port",
+				Usage:   "Specifies the HTTP service port",
+				Value:   8080,
+				EnvVars: []string{"EVENTS_HTTP_PORT"},
+			},
+		},
+		Action: run,
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(cli *cli.Context) error {
+	path := cli.String("path")
+	if path == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			log.Fatal(err.Error())
+			return err
 		}
+
 		path = homeDir + "/.events"
 	}
 
 	log, err := zap.NewDevelopment()
 	if err != nil {
-		log.Fatal(err.Error())
+		return err
 	}
 	defer log.Sync()
 
@@ -40,70 +64,54 @@ func main() {
 		zap.String("action", "main"),
 	)
 
-	cfg, err := conf.LoadConfig(path)
+	f, err := os.Open(path + "/config.yaml")
 	if err != nil {
-		log.Fatal(err.Error())
+		return err
+	}
+	defer f.Close()
+
+	var cfg *events.Config
+	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+		return err
 	}
 
-	pubSubs := make(map[string]pubsub.PubSub)
-	for name, transport := range cfg.Transports {
-		pubSub, err := pubsub.Factory(transport)
-		if err != nil {
-			log.Error(err.Error(),
-				zap.String("transport", name),
-			)
-			continue
-		}
+	cfg.SetPath(path)
 
-		pubSubs[name] = pubSub
+	repo, err := persistence.NewEventRepository(cfg.Persistence)
+	if err != nil {
+		return err
 	}
 
-	destinations := make([]pubsub.PubSub, 0)
-	for _, destination := range cfg.Destinations {
-		pubSub, ok := pubSubs[destination.Transport]
-		if !ok {
-			log.Error("transport not found",
-				zap.String("destination", destination.Transport),
-			)
-			continue
-		}
-
-		destinations = append(destinations, pubSub)
-	}
-
-	r := gin.Default()
-	r.Use(cors.Default())
-
-	repo := kv.NewEventRepository()
-	svc := events.NewService(repo, destinations...)
+	svc := events.NewService(repo)
 	svc = events.LoggingMiddleware(zap.L())(svc)
 	svc.Up()
+
+	r := gin.Default()
+	apiV1 := r.Group("/v1")
+
+	// PUT /events
 	{
 		endpoint := events.StoreEndpoint(svc)
-		endpoint = events.MinifyMiddleware("json")(endpoint)
-		r.PUT("/events", http.StoreHandler(endpoint))
-
-		for _, source := range cfg.Sources {
-			log := log.With(zap.String("source", source.Transport))
-
-			pubSub, ok := pubSubs[source.Transport]
-			if !ok {
-				log.Error("transport not found")
-				continue
-			}
-
-			for _, topic := range source.Topics {
-				err := pubSub.Subscribe(topic, mqtt.StoreHandler(endpoint))
-				if err != nil {
-					log.Error(err.Error(), zap.String("topic", topic))
-				}
-			}
-		}
+		endpoint = events.MinifyMiddleware(events.JSON)(endpoint)
+		apiV1.PUT("/events", http.StoreHandler(endpoint))
 	}
 
+	// GET /events/iterators
 	{
-		endpoint := events.ReplayEndpoint(svc)
-		r.GET("/replay", http.ReplayHandler(endpoint))
+		endpoint := events.IteratorEndpoint(svc)
+		apiV1.GET("/events/iterators", http.IteratorHandler(endpoint))
+	}
+
+	// GET /events/iterators/:id?batch=100
+	{
+		endpoint := events.FetchFromIterator(svc)
+		apiV1.GET("/events/iterators/:id", http.FetchFromIteratorHandler(endpoint))
+	}
+
+	// DELETE /events/iterators/:id
+	{
+		endpoint := events.CloseIterator(svc)
+		apiV1.DELETE("/events/iterators/:id", http.CloseIteratorHandler(endpoint))
 	}
 
 	go r.Run(":8080")
@@ -116,9 +124,7 @@ func main() {
 
 	svc.Down()
 	repo.Close()
-	for _, pubSub := range pubSubs {
-		pubSub.Close()
-	}
 
 	log.Info("done")
+	return nil
 }

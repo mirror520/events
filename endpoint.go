@@ -21,27 +21,56 @@ func StoreEndpoint(svc Service) endpoint.Endpoint {
 			return nil, errors.New("invalid request")
 		}
 
-		return svc.Store(req.Topic, req.Payload)
+		err := svc.Store(req.Topic, req.Payload)
+		return nil, err
 	}
 }
 
-type ReplayRequest struct {
-	From   time.Time `json:"from"`
-	Topics []string  `json:"topics"`
+type IteratorRequest struct {
+	Topic string    `json:"topic"`
+	Since time.Time `json:"since"`
 }
 
-func ReplayEndpoint(svc Service) endpoint.Endpoint {
+func IteratorEndpoint(svc Service) endpoint.Endpoint {
 	return func(ctx context.Context, request any) (any, error) {
-		req, ok := request.(ReplayRequest)
+		req, ok := request.(IteratorRequest)
 		if !ok {
 			return nil, errors.New("invalid request")
 		}
 
-		err := svc.Replay(req.From, req.Topics...)
+		it, err := svc.Iterator(req.Topic, req.Since)
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, nil
+		return it.ID(), nil
+	}
+}
+
+type FetchFromIteratorRequest struct {
+	ID    string
+	Batch int
+}
+
+func FetchFromIterator(svc Service) endpoint.Endpoint {
+	return func(ctx context.Context, request any) (any, error) {
+		req, ok := request.(FetchFromIteratorRequest)
+		if !ok {
+			return nil, errors.New("invalid request")
+		}
+
+		return svc.FetchFromIterator(req.Batch, req.ID)
+	}
+}
+
+func CloseIterator(svc Service) endpoint.Endpoint {
+	return func(ctx context.Context, request any) (any, error) {
+		id, ok := request.(string)
+		if !ok {
+			return nil, errors.New("invalid request")
+		}
+
+		err := svc.CloseIterator(id)
+		return nil, err
 	}
 }
