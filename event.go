@@ -13,9 +13,16 @@ type Event struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
-func NewEvent(topic string, payload []byte) *Event {
+func NewEvent(topic string, payload json.RawMessage, ids ...ulid.ULID) *Event {
+	var id ulid.ULID
+	if len(ids) > 0 {
+		id = ids[0]
+	} else {
+		id = ulid.Make()
+	}
+
 	return &Event{
-		ID:      ulid.Make(),
+		ID:      id,
 		Topic:   topic,
 		Payload: payload,
 	}

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/gin-gonic/gin"
@@ -96,10 +97,10 @@ func run(cli *cli.Context) error {
 		apiV1.PUT("/events", http.StoreHandler(endpoint))
 	}
 
-	// GET /events/iterators
+	// POST /events/iterators
 	{
-		endpoint := events.IteratorEndpoint(svc)
-		apiV1.GET("/events/iterators", http.IteratorHandler(endpoint))
+		endpoint := events.NewIteratorEndpoint(svc)
+		apiV1.POST("/events/iterators", http.NewIteratorHandler(endpoint))
 	}
 
 	// GET /events/iterators/:id?batch=100
@@ -114,7 +115,7 @@ func run(cli *cli.Context) error {
 		apiV1.DELETE("/events/iterators/:id", http.CloseIteratorHandler(endpoint))
 	}
 
-	go r.Run(":8080")
+	go r.Run(":" + strconv.Itoa(cli.Int("port")))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

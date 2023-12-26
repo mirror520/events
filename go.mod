@@ -6,6 +6,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-kit/kit v0.13.0
+	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tdewolff/minify/v2 v2.20.10

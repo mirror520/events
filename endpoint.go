@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/endpoint"
+	"github.com/oklog/ulid/v2"
 )
 
 type StoreRequest struct {
+	ID      ulid.ULID       `json:"id"`
 	Topic   string          `json:"topic"`
 	Payload json.RawMessage `json:"payload"`
 }
@@ -21,29 +23,41 @@ func StoreEndpoint(svc Service) endpoint.Endpoint {
 			return nil, errors.New("invalid request")
 		}
 
-		err := svc.Store(req.Topic, req.Payload)
+		var err error
+		if req.ID.Time() == 0 {
+			err = svc.Store(req.Topic, req.Payload)
+		} else {
+			err = svc.Store(req.Topic, req.Payload, req.ID)
+		}
+
 		return nil, err
 	}
 }
 
-type IteratorRequest struct {
+type NewIteratorRequest struct {
 	Topic string    `json:"topic"`
 	Since time.Time `json:"since"`
 }
 
-func IteratorEndpoint(svc Service) endpoint.Endpoint {
+func NewIteratorEndpoint(svc Service) endpoint.Endpoint {
 	return func(ctx context.Context, request any) (any, error) {
-		req, ok := request.(IteratorRequest)
+		req, ok := request.(NewIteratorRequest)
 		if !ok {
 			return nil, errors.New("invalid request")
 		}
 
-		it, err := svc.Iterator(req.Topic, req.Since)
-		if err != nil {
-			return nil, err
+		return svc.NewIterator(req.Topic, req.Since)
+	}
+}
+
+func IteratorEndpoint(svc Service) endpoint.Endpoint {
+	return func(ctx context.Context, request any) (any, error) {
+		id, ok := request.(string)
+		if !ok {
+			return nil, errors.New("invalid request")
 		}
 
-		return it.ID(), nil
+		return svc.Iterator(id)
 	}
 }
 

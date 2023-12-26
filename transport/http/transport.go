@@ -32,9 +32,9 @@ func StoreHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	}
 }
 
-func IteratorHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
+func NewIteratorHandler(endpoint endpoint.Endpoint) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var request events.IteratorRequest
+		var request events.NewIteratorRequest
 		if err := ctx.ShouldBind(&request); err != nil {
 			result := model.FailureResult(err)
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, result)

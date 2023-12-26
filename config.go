@@ -25,19 +25,23 @@ const (
 
 	InMem StorageDriver = "inmem"
 
-	// KVDB
+	// Key-value Database
 
 	BadgerDB StorageDriver = "badger"
 	Redis    StorageDriver = "redis"
 
-	// TSDB
+	// Time Series Database
 
-	InfluxDB StorageDriver = "influxdb"
+	InfluxDB   StorageDriver = "influxdb"
+	InfluxDBv2 StorageDriver = "influxdb2"
 
-	// RDB
+	// Relational DBMS
 
 	MySQL      StorageDriver = "mysql"
 	SQLServer  StorageDriver = "sqlserver"
 	PostgreSQL StorageDriver = "postgres"
 	SQLite     StorageDriver = "sqlite"
+
+	// Document Database
+	MongoDB StorageDriver = "mongo"
 )

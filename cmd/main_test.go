@@ -71,7 +71,13 @@ func (suite *eventsTestSuite) TestStore() {
 		return
 	}
 
-	it, err := suite.svc.Iterator(topic, time.Time{})
+	id, err := suite.svc.NewIterator(topic, time.Time{})
+	if err != nil {
+		suite.Fail(err.Error())
+		return
+	}
+
+	it, err := suite.svc.Iterator(id)
 	if err != nil {
 		suite.Fail(err.Error())
 		return

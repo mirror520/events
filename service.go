@@ -2,10 +2,12 @@ package events
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	"go.uber.org/zap"
 )
 
@@ -18,8 +20,9 @@ var (
 type Service interface {
 	Up()
 	Down()
-	Store(topic string, payload []byte) error
-	Iterator(topic string, since time.Time) (Iterator, error)
+	Store(topic string, payload json.RawMessage, ids ...ulid.ULID) error
+	NewIterator(topic string, since time.Time) (string, error)
+	Iterator(id string) (Iterator, error)
 
 	// Iterator
 	FetchFromIterator(batch int, id string) ([]*Event, error)
@@ -60,12 +63,12 @@ func (svc *service) Down() {
 	svc.log.Info("done", zap.String("action", "down"))
 }
 
-func (svc *service) Store(topic string, payload []byte) error {
+func (svc *service) Store(topic string, payload json.RawMessage, ids ...ulid.ULID) error {
 	if len(payload) == 0 {
 		return ErrEmptyPayload
 	}
 
-	e := NewEvent(topic, payload)
+	e := NewEvent(topic, payload, ids...)
 	err := svc.events.Store(e)
 	if err != nil {
 		return err
@@ -74,16 +77,30 @@ func (svc *service) Store(topic string, payload []byte) error {
 	return nil
 }
 
-func (svc *service) Iterator(topic string, since time.Time) (Iterator, error) {
+func (svc *service) NewIterator(topic string, since time.Time) (string, error) {
 	// TODO: options
 	it, err := svc.events.Iterator(svc.ctx, since)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	go svc.doneHandler(it)
 
 	svc.iterators.Store(it.ID(), it)
+	return it.ID(), nil
+}
+
+func (svc *service) Iterator(id string) (Iterator, error) {
+	val, ok := svc.iterators.Load(id)
+	if !ok {
+		return nil, errors.New("iterator not found")
+	}
+
+	it, ok := val.(Iterator)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
 	return it, nil
 }
 

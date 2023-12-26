@@ -1,8 +1,10 @@
 package events
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +30,7 @@ func (mw *loggingMiddleware) Down() {
 	mw.next.Down()
 }
 
-func (mw *loggingMiddleware) Store(topic string, payload []byte) error {
+func (mw *loggingMiddleware) Store(topic string, payload json.RawMessage, ids ...ulid.ULID) error {
 	log := mw.log.With(
 		zap.String("action", "store"),
 		zap.String("topic", topic),
@@ -44,20 +46,35 @@ func (mw *loggingMiddleware) Store(topic string, payload []byte) error {
 	return nil
 }
 
-func (mw *loggingMiddleware) Iterator(topic string, since time.Time) (Iterator, error) {
+func (mw *loggingMiddleware) NewIterator(topic string, since time.Time) (string, error) {
 	log := mw.log.With(
-		zap.String("action", "iterator"),
+		zap.String("action", "new_iterator"),
 		zap.String("topic", topic),
 		zap.Time("since", since),
 	)
 
-	it, err := mw.next.Iterator(topic, since)
+	id, err := mw.next.NewIterator(topic, since)
 	if err != nil {
 		log.Error(err.Error())
+		return "", err
+	}
+
+	log.Info("iterator created", zap.String("id", id))
+	return id, nil
+}
+
+func (mw *loggingMiddleware) Iterator(id string) (Iterator, error) {
+	log := mw.log.With(
+		zap.String("action", "iterator"),
+		zap.String("id", id),
+	)
+
+	it, err := mw.next.Iterator(id)
+	if err != nil {
 		return nil, err
 	}
 
-	log.Info("iterator created")
+	log.Info("iterator obtained")
 	return it, nil
 }
 
