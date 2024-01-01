@@ -93,7 +93,7 @@ func run(cli *cli.Context) error {
 	// PUT /events
 	{
 		endpoint := events.StoreEndpoint(svc)
-		endpoint = events.MinifyMiddleware(events.JSON)(endpoint)
+		endpoint = events.MinifyMiddleware()(endpoint)
 		apiV1.PUT("/events", http.StoreHandler(endpoint))
 	}
 

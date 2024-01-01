@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -35,18 +36,24 @@ func (suite *eventsTestSuite) SetupSuite() {
 		var id ulid.ULID
 		id.SetTime(ulid.Timestamp(now.Add(-10 * time.Second)))
 		repo.Store(&events.Event{
-			ID:      id,
-			Topic:   "hello/1/world",
-			Payload: []byte("Test 1"),
+			ID:    id,
+			Topic: "hello/world",
+			Payload: events.Payload{
+				Data: []byte("Test 1"),
+				Type: events.Any,
+			},
 		})
 	}
 	{
 		var id ulid.ULID
 		id.SetTime(ulid.Timestamp(now.Add(-5 * time.Second)))
 		repo.Store(&events.Event{
-			ID:      id,
-			Topic:   "hello/2/world",
-			Payload: []byte("Test 2"),
+			ID:    id,
+			Topic: "hello/world",
+			Payload: events.Payload{
+				Data: []byte("Test 2"),
+				Type: events.Any,
+			},
 		})
 	}
 
@@ -60,10 +67,13 @@ func (suite *eventsTestSuite) SetupSuite() {
 
 func (suite *eventsTestSuite) TestStore() {
 	topic := "hello/world"
-	payload := []byte(`{
-		"message": "Hello World",
-		"timestamp": "2023-01-22T23:35:00.000+08:00"
-	}`)
+	payload := events.Payload{
+		Data: json.RawMessage([]byte(`{
+			"message": "Hello World",
+			"timestamp": "2023-01-22T23:35:00.000+08:00"
+		}`)),
+		Type: events.JSON,
+	}
 
 	err := suite.svc.Store(topic, payload)
 	if err != nil {

@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -20,7 +19,7 @@ var (
 type Service interface {
 	Up()
 	Down()
-	Store(topic string, payload json.RawMessage, ids ...ulid.ULID) error
+	Store(topic string, payload Payload, ids ...ulid.ULID) error
 	NewIterator(topic string, since time.Time) (string, error)
 	Iterator(id string) (Iterator, error)
 
@@ -63,11 +62,7 @@ func (svc *service) Down() {
 	svc.log.Info("done", zap.String("action", "down"))
 }
 
-func (svc *service) Store(topic string, payload json.RawMessage, ids ...ulid.ULID) error {
-	if len(payload) == 0 {
-		return ErrEmptyPayload
-	}
-
+func (svc *service) Store(topic string, payload Payload, ids ...ulid.ULID) error {
 	e := NewEvent(topic, payload, ids...)
 	err := svc.events.Store(e)
 	if err != nil {
