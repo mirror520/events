@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/go-kit/kit/endpoint"
@@ -24,7 +25,7 @@ func TestMinifyMiddleware(t *testing.T) {
 	ack := make(chan any)
 
 	endpoint := debugMiddleware(ack)
-	endpoint = MinifyMiddleware(JSON)(endpoint)
+	endpoint = MinifyMiddleware()(endpoint)
 
 	input := []byte(`{
 		"message": "Hello World",
@@ -32,8 +33,11 @@ func TestMinifyMiddleware(t *testing.T) {
 	}`)
 
 	req := StoreRequest{
-		Topic:   "hello/world",
-		Payload: input,
+		Topic: "hello/world",
+		Payload: Payload{
+			Data: json.RawMessage(input),
+			Type: JSON,
+		},
 	}
 
 	endpoint(context.Background(), req)
@@ -45,7 +49,10 @@ func TestMinifyMiddleware(t *testing.T) {
 		return
 	}
 
-	output := `{"message":"Hello World","timestamp":"2023-01-22T23:35:00.000+08:00"}`
-	assert.Equal(output, string(req.Payload))
-	assert.True(len(req.Payload) <= len(input))
+	expected := `{"message":"Hello World","timestamp":"2023-01-22T23:35:00.000+08:00"}`
+
+	actual, ok := req.Payload.JSON()
+	assert.True(ok)
+	assert.Equal(expected, string(actual))
+	assert.True(len(actual) <= len(input))
 }

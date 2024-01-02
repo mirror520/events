@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mirror520/events"
 	"github.com/oklog/ulid/v2"
+
+	"github.com/mirror520/events"
 )
 
 type eventRepository struct {
@@ -49,11 +50,14 @@ func (repo *eventRepository) Iterator(ctx context.Context, since time.Time) (eve
 	var last ulid.ULID
 	last.SetTime(ms)
 
+	ctx, cancel := context.WithCancelCause(ctx)
+
 	return &iterator{
 		id:      "inmem-" + ulid.Make().String(),
 		last:    last,
 		fetchFn: repo.fetch,
-		done:    make(chan struct{}),
+		ctx:     ctx,
+		cancel:  cancel,
 	}, nil
 }
 
@@ -101,8 +105,8 @@ type iterator struct {
 	last    ulid.ULID
 	fetchFn fetch
 
-	done chan struct{}
-	err  error
+	ctx    context.Context
+	cancel context.CancelCauseFunc
 }
 
 func (it *iterator) ID() string {
@@ -121,14 +125,17 @@ func (it *iterator) Fetch(batch int) ([]*events.Event, error) {
 }
 
 func (it *iterator) Close(err error) {
-	it.err = err
-	it.done <- struct{}{}
+	if it.cancel != nil {
+		it.cancel(err)
+	}
+
+	it.cancel = nil
 }
 
 func (it *iterator) Done() <-chan struct{} {
-	return it.done
+	return it.ctx.Done()
 }
 
 func (it *iterator) Err() error {
-	return it.err
+	return it.ctx.Err()
 }

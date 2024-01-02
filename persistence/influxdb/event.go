@@ -2,19 +2,25 @@ package influxdb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	"go.uber.org/zap"
 
 	influx "github.com/influxdata/influxdb1-client/v2"
-	"github.com/oklog/ulid/v2"
 
 	"github.com/mirror520/events"
 )
+
+type EventRepository interface {
+	events.Repository
+	Exec(command string) error
+}
 
 type eventRepository struct {
 	log    *zap.Logger
@@ -51,17 +57,17 @@ func NewEventRepository(cfg events.Persistence) (events.Repository, error) {
 		cancel: cancel,
 	}
 
-	go repo.batchWrite(ctx)
+	go repo.batchWriteHandler(ctx)
 
 	return repo, nil
 }
 
-func (repo *eventRepository) batchWrite(ctx context.Context) {
+func (repo *eventRepository) batchWriteHandler(ctx context.Context) {
 	log := repo.log.With(
-		zap.String("action", "batchWrite"),
+		zap.String("action", "batch_write"),
 	)
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(repo.cfg.Duration)
 	for {
 		select {
 		case <-ctx.Done():
@@ -77,6 +83,8 @@ func (repo *eventRepository) batchWrite(ctx context.Context) {
 
 					if err := repo.client.Write(bp); err != nil {
 						log.Error(err.Error())
+					} else {
+						log.Info("points written")
 					}
 				}
 			}
@@ -100,6 +108,8 @@ func (repo *eventRepository) batchWrite(ctx context.Context) {
 
 					if err := repo.client.Write(bp); err != nil {
 						log.Error(err.Error())
+					} else {
+						log.Info("points written")
 					}
 				}
 			}
@@ -115,9 +125,19 @@ func (repo *eventRepository) Store(e *events.Event) error {
 		"topic": e.Topic,
 	}
 
+	data, err := json.Marshal(e.Payload.Data)
+	if err != nil {
+		return err
+	}
+
+	jsonStr := string(data)
+	if e.Payload.Type == events.Bytes {
+		jsonStr = fmt.Sprintf(`{"$binary":%s}`, jsonStr)
+	}
+
 	fields := map[string]any{
 		"id":      e.ID.String(),
-		"payload": string(e.Payload),
+		"payload": jsonStr,
 	}
 
 	ts := time.UnixMilli(int64(e.ID.Time()))
@@ -139,11 +159,14 @@ func (repo *eventRepository) Iterator(ctx context.Context, since time.Time) (eve
 	var last ulid.ULID
 	last.SetTime(ms)
 
+	ctx, cancel := context.WithCancelCause(ctx)
+
 	return &iterator{
 		id:      "influx-" + ulid.Make().String(),
 		last:    last,
-		fetchCh: repo.fetch,
-		done:    make(chan struct{}),
+		fetchFn: repo.fetch,
+		ctx:     ctx,
+		cancel:  cancel,
 	}, nil
 }
 
@@ -175,9 +198,14 @@ func (repo *eventRepository) fetch(batch int, last ulid.ULID) ([]*events.Event, 
 	for i, value := range row.Values {
 		idStr := value[1].(string)
 		topic := value[2].(string)
-		payload := value[3].(string)
+		payloadStr := value[3].(string)
 
 		id, err := ulid.Parse(idStr)
+		if err != nil {
+			return nil, err
+		}
+
+		payload, err := events.NewPayloadFromBytes([]byte(payloadStr))
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +213,7 @@ func (repo *eventRepository) fetch(batch int, last ulid.ULID) ([]*events.Event, 
 		e := &events.Event{
 			ID:      id,
 			Topic:   topic,
-			Payload: []byte(payload),
+			Payload: payload,
 		}
 
 		es[i] = e
@@ -205,15 +233,29 @@ func (repo *eventRepository) Close() error {
 	return repo.client.Close()
 }
 
+func (repo *eventRepository) Exec(command string) error {
+	q := influx.NewQuery(command, "", "")
+	resp, err := repo.client.Query(q)
+	if err != nil {
+		return err
+	}
+
+	if err := resp.Error(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type fetch func(batch int, last ulid.ULID) ([]*events.Event, error)
 
 type iterator struct {
 	id      string
 	last    ulid.ULID
-	fetchCh fetch
+	fetchFn fetch
 
-	done chan struct{}
-	err  error
+	ctx    context.Context
+	cancel context.CancelCauseFunc
 }
 
 func (it *iterator) ID() string {
@@ -221,7 +263,7 @@ func (it *iterator) ID() string {
 }
 
 func (it *iterator) Fetch(batch int) ([]*events.Event, error) {
-	events, err := it.fetchCh(batch, it.last)
+	events, err := it.fetchFn(batch, it.last)
 	if err != nil {
 		return nil, err
 	}
@@ -232,22 +274,26 @@ func (it *iterator) Fetch(batch int) ([]*events.Event, error) {
 }
 
 func (it *iterator) Close(err error) {
-	it.err = err
-	it.done <- struct{}{}
+	if it.cancel != nil {
+		it.cancel(err)
+	}
+
+	it.cancel = nil
 }
 
 func (it *iterator) Done() <-chan struct{} {
-	return it.done
+	return it.ctx.Done()
 }
 
 func (it *iterator) Err() error {
-	return it.err
+	return it.ctx.Err()
 }
 
 type Config struct {
 	influx.HTTPConfig
 	influx.BatchPointsConfig
 	Measurement string
+	Duration    time.Duration
 }
 
 func parseConfig(dsn string) (*Config, error) {
@@ -271,6 +317,17 @@ func parseConfig(dsn string) (*Config, error) {
 		measurement = q.Get("measurement")
 	}
 
+	duration := 10 * time.Second
+	if q.Has("duration") {
+		durationStr := q.Get("duration")
+		dur, err := time.ParseDuration(durationStr)
+		if err != nil {
+			return nil, err
+		}
+
+		duration = dur
+	}
+
 	return &Config{
 		HTTPConfig: influx.HTTPConfig{
 			Addr:     u.Scheme + "://" + u.Host,
@@ -283,5 +340,6 @@ func parseConfig(dsn string) (*Config, error) {
 			RetentionPolicy: q.Get("rp"),
 		},
 		Measurement: measurement,
+		Duration:    duration,
 	}, nil
 }

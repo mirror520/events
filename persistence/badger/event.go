@@ -18,6 +18,9 @@ type eventRepository struct {
 
 func NewEventRepository(cfg events.Persistence) (events.Repository, error) {
 	opts := badger.DefaultOptions(cfg.DSN)
+	if cfg.DSN == "file::memory" {
+		opts = badger.DefaultOptions("").WithInMemory(true)
+	}
 
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -29,7 +32,7 @@ func NewEventRepository(cfg events.Persistence) (events.Repository, error) {
 
 func (repo *eventRepository) Store(e *events.Event) error {
 	key := e.ID.Bytes()
-	val, err := json.Marshal(e)
+	val, err := json.Marshal(&e)
 	if err != nil {
 		return err
 	}

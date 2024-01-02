@@ -1,7 +1,6 @@
 package events
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -30,7 +29,7 @@ func (mw *loggingMiddleware) Down() {
 	mw.next.Down()
 }
 
-func (mw *loggingMiddleware) Store(topic string, payload json.RawMessage, ids ...ulid.ULID) error {
+func (mw *loggingMiddleware) Store(topic string, payload Payload, ids ...ulid.ULID) error {
 	log := mw.log.With(
 		zap.String("action", "store"),
 		zap.String("topic", topic),

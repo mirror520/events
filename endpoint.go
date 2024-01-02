@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -11,9 +10,9 @@ import (
 )
 
 type StoreRequest struct {
-	ID      ulid.ULID       `json:"id"`
-	Topic   string          `json:"topic"`
-	Payload json.RawMessage `json:"payload"`
+	ID      ulid.ULID `json:"id"`
+	Topic   string    `json:"topic"`
+	Payload Payload   `json:"payload"`
 }
 
 func StoreEndpoint(svc Service) endpoint.Endpoint {
