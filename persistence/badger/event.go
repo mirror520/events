@@ -32,7 +32,7 @@ func NewEventRepository(cfg events.Persistence) (events.Repository, error) {
 
 func (repo *eventRepository) Store(e *events.Event) error {
 	key := e.ID.Bytes()
-	val, err := json.Marshal(e)
+	val, err := json.Marshal(&e)
 	if err != nil {
 		return err
 	}

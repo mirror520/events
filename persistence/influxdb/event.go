@@ -130,9 +130,14 @@ func (repo *eventRepository) Store(e *events.Event) error {
 		return err
 	}
 
+	jsonStr := string(data)
+	if e.Payload.Type == events.Bytes {
+		jsonStr = fmt.Sprintf(`{"$binary":%s}`, jsonStr)
+	}
+
 	fields := map[string]any{
 		"id":      e.ID.String(),
-		"payload": string(data),
+		"payload": jsonStr,
 	}
 
 	ts := time.UnixMilli(int64(e.ID.Time()))

@@ -3,6 +3,7 @@ package events
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -83,6 +84,15 @@ func (p *Payload) SetBytes(data []byte) {
 	p.Type = Bytes
 }
 
+func (p *Payload) Bytes() ([]byte, bool) {
+	if p.Type != Bytes {
+		return nil, false
+	}
+
+	bs, ok := p.Data.([]byte)
+	return bs, ok
+}
+
 func (p *Payload) SetData(data any) {
 	p.Data = data
 	p.Type = Any
@@ -110,17 +120,43 @@ func (p *Payload) UnmarshalJSON(data []byte) error {
 			p.SetBytes(bs)
 		}
 
-	case []any: // array
+	case []any:
 		p.SetJSON(data)
 	case float64, string, bool:
 		p.SetData(val)
 	default:
-		p.Data = val
+		p.SetData(val)
 	}
 
 	return nil
 }
 
 func (p *Payload) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.Data)
+	switch p.Type {
+	case Any:
+		return json.Marshal(p.Data)
+
+	case JSON:
+		raw, ok := p.JSON()
+		if !ok {
+			return nil, errors.New("invalid type")
+		}
+
+		return raw, nil
+
+	case Bytes:
+		bs, ok := p.Bytes()
+		if !ok {
+			return nil, errors.New("invalid type")
+		}
+
+		binData := map[string]any{
+			"$binary": bs,
+		}
+
+		return json.Marshal(binData)
+
+	default:
+		return nil, errors.New("invalid type")
+	}
 }

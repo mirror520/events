@@ -48,6 +48,14 @@ func NewEventRepository(cfg events.Persistence) (events.Repository, error) {
 		cancel: cancel,
 	}
 
+	ulidCodec := NewULIDCodec()
+	bson.DefaultRegistry.RegisterTypeEncoder(tULID, ulidCodec)
+	bson.DefaultRegistry.RegisterTypeDecoder(tULID, ulidCodec)
+
+	payloadCodec := NewPayloadCodec()
+	bson.DefaultRegistry.RegisterTypeEncoder(tPayload, payloadCodec)
+	bson.DefaultRegistry.RegisterTypeDecoder(tPayload, payloadCodec)
+
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

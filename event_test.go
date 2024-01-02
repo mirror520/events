@@ -261,7 +261,6 @@ func TestPayloadMarshalJSON(t *testing.T) {
 		}
 
 		encodedInput := base64.StdEncoding.EncodeToString(buf.Bytes())
-		encodedInput = "\"" + encodedInput + "\""
 
 		payload, err := NewPayloadFromBytes(buf.Bytes(), true)
 		if err != nil {
@@ -275,6 +274,14 @@ func TestPayloadMarshalJSON(t *testing.T) {
 			return
 		}
 
-		assert.Equal(encodedInput, string(data))
+		var raw map[string]any
+		if err := json.Unmarshal(data, &raw); err != nil {
+			assert.Fail(err.Error())
+			return
+		}
+
+		binData, ok := raw["$binary"].(string)
+		assert.True(ok)
+		assert.Equal(encodedInput, string(binData))
 	}
 }
